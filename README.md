@@ -1,3 +1,7 @@
+# 29th December 2025 Update
+
+PvP is now fixed with 0.7.0 update of Palworld so this mod is obsolete and will not be maintained further.
+
 # YetAnotherPvPFix
 
 Tired of having PvP break every single patch? This project aims to maintain PvP functionality without having to do complicated config adjustments like WorldOption.sav or other workarounds.

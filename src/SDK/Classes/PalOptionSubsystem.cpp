@@ -30,7 +30,7 @@ namespace Palworld {
         void* ParamsBuffer = FMemory::Malloc(Function->GetParmsSize());
         FMemory::Memzero(ParamsBuffer, Function->GetParmsSize());
 
-        for (auto& Property : Function->ForEachPropertyInChain())
+        for (auto Property : Function->ForEachPropertyInChain())
         {
             void* ValuePtr = Property->ContainerPtrToValuePtr<void>(ParamsBuffer);
 

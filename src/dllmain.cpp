@@ -32,13 +32,10 @@ using namespace Palworld;
 std::vector<SignatureContainer> SigContainer;
 SinglePassScanner::SignatureContainerMap SigContainerMap;
 
-bool EnablePvPDamageToBuildings = false;
+bool EnablePvP = false;
 
 typedef bool(__thiscall* TYPE_PalUtility_IsPvP)(UObject*);
 static inline TYPE_PalUtility_IsPvP PalUtility_IsPvP_Internal;
-
-// Genuinely no idea what this is, but it's responsible for checking if damage should be done to buildings or not
-static inline void* DmgReturnFunctionPtr;
 
 // Signature stuff, expect them to break with updates
 void BeginScan()
@@ -65,29 +62,7 @@ void BeginScan()
         };
     }();
 
-    SignatureContainer Dmg_Return_Signature = [=]() -> SignatureContainer {
-        return {
-            {{ "84 C0 0F 84 ?? ?? ?? ?? 48 8D 4F D8 E8 ?? ?? ?? ?? 48 8D 4F D8"}},
-            [=](SignatureContainer& self) {
-                void* FunctionPointer = static_cast<void*>(self.get_match_address());
-
-                DmgReturnFunctionPtr = FunctionPointer;
-
-                self.get_did_succeed() = true;
-
-                return true;
-            },
-            [](const SignatureContainer& self) {
-                if (!self.get_did_succeed())
-                {
-                    Output::send<LogLevel::Error>(STR("Failed to find signature for Building Damage Return Function. Structure damage won't function!\n"));
-                }
-            }
-        };
-    }();
-
     SigContainer.emplace_back(PalUtility_IsPvP_Signature);
-    SigContainer.emplace_back(Dmg_Return_Signature);
     SigContainerMap.emplace(ScanTarget::MainExe, SigContainer);
     SinglePassScanner::start_scan(SigContainerMap);
 }
@@ -95,14 +70,7 @@ void BeginScan()
 SafetyHookInline PalUtility_IsPvP_Hook{};
 bool __stdcall PalUtility_IsPvP(UObject* WorldContextObject)
 {
-    if (_ReturnAddress() == DmgReturnFunctionPtr)
-    {
-        // Make our mystery building damage function read our mod's config setting instead
-        return EnablePvPDamageToBuildings;
-    }
-
-    // Otherwise just read the IsPvP value normally from WorldSettings
-    return PalUtility_IsPvP_Hook.call<bool>(WorldContextObject);
+    return EnablePvP;
 }
 
 class YetAnotherPvPFix : public RC::CppUserModBase
@@ -111,11 +79,30 @@ public:
     YetAnotherPvPFix() : CppUserModBase()
     {
         ModName = STR("YetAnotherPvPFix");
-        ModVersion = STR("1.3.0");
-        ModDescription = STR("Fixes PvP damage not working for both players and buildings and also some other bugs after Crossplay patch.");
+        ModVersion = STR("1.4.0");
+        ModDescription = STR("Fixes PvP.");
         ModAuthors = STR("Okaetsu");
 
         Output::send<LogLevel::Verbose>(STR("{} v{} by {} loaded.\n"), ModName, ModVersion, ModAuthors);
+
+        BeginScan();
+
+        PalUtility_IsPvP_Hook = safetyhook::create_inline(reinterpret_cast<void*>(PalUtility_IsPvP_Internal),
+            reinterpret_cast<void*>(PalUtility_IsPvP));
+
+        auto& Settings = PVP::Config::Settings::get();
+        Settings.deserialize();
+
+        EnablePvP = Settings.PVP.EnablePvP;
+
+        if (EnablePvP)
+        {
+            Output::send<LogLevel::Verbose>(STR("[YAPP] Enabling PvP.\n"));
+        }
+        else
+        {
+            Output::send<LogLevel::Verbose>(STR("[YAPP] Disabling PvP.\n"));
+        }
     }
 
     ~YetAnotherPvPFix() override
@@ -131,7 +118,6 @@ public:
         Output::send<LogLevel::Verbose>(STR("[{}] loaded successfully!\n"), ModName);
 
         auto& Settings = PVP::Config::Settings::get();
-        Settings.deserialize();
 
         static bool HasInitialized = false;
         Hook::RegisterBeginPlayPostCallback([&](AActor* Actor) {
@@ -167,7 +153,7 @@ public:
                 return;
             }
 
-            if (Settings.PVP.EnablePlayerToPlayerDamage)
+            if (Settings.PVP.EnablePvP)
             {
                 auto bEnablePlayerToPlayerDamage_Property = OptionWorldSettingsStruct->GetPropertyByName(STR("bEnablePlayerToPlayerDamage"));
                 if (!bEnablePlayerToPlayerDamage_Property)
@@ -192,22 +178,7 @@ public:
             {
                 Output::send<LogLevel::Verbose>(STR("[YAPP] Disabling PvP Damage to Players.\n"));
             }
-
-            EnablePvPDamageToBuildings = Settings.PVP.EnableBuildingPvPDamage;
-            if (EnablePvPDamageToBuildings)
-            {
-                Output::send<LogLevel::Verbose>(STR("[YAPP] Enabling PvP Damage to Buildings.\n"));
-            }
-            else
-            {
-                Output::send<LogLevel::Verbose>(STR("[YAPP] Disabling PvP Damage to Buildings.\n"));
-            }
         });
-
-        BeginScan();
-
-        PalUtility_IsPvP_Hook = safetyhook::create_inline(reinterpret_cast<void*>(PalUtility_IsPvP_Internal),
-            reinterpret_cast<void*>(PalUtility_IsPvP));
     }
 };
 

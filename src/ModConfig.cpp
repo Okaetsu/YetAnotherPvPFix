@@ -35,8 +35,7 @@ namespace PVP::Config
         constexpr static File::CharType section_pvp[] = STR("PVP");
         try
         {
-            PVP.EnablePlayerToPlayerDamage = parser.get_bool(section_pvp, L"EnablePlayerToPlayerDamage");
-            PVP.EnableBuildingPvPDamage = parser.get_bool(section_pvp, L"EnableBuildingPvPDamage");
+            PVP.EnablePvP = parser.get_bool(section_pvp, L"EnablePvP");
         }
         catch (std::exception& e)
         {

@@ -1,8 +1,5 @@
 # Xmake cache
-.xmake/
-Binaries/
-Intermediates/
-vsxmake2022/
+/build
 
 # Visual Studio
 .vs/
